@@ -1,6 +1,6 @@
 from constants import *
-from yandex_request import upload
-from yandex_auth import yandex_auth
+from yandex_request import backup
+
 
 def main():
     """
@@ -22,13 +22,9 @@ def main():
                 print("Exiting...")
                 break
             case "import":
-                token = yandex_auth()
-                headers = {"Authorization": f"OAuth {token}"}
-                path = input("Enter the file path: ").strip()
-                path_on_cloud = "backup1"
-                upload(token, path, path_on_cloud, headers)
-            case "export":
                 pass
+            case "export":
+                backup(input("Enter load path: ").strip())
 
             case _:
                 print("Invalid mode")

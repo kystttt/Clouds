@@ -21,7 +21,29 @@ def create_folder(path):
         print("Error: ", e)
         sys.exit()
 
+def delete_backup(backup_name):
+    try:
+        response = requests.get(f'{Y_URL}?path={backup_name}', headers=headers)
+        if response.status_code == 404:
+            print("Error: backup not found")
+            sys.exit()
+        bar = Bar('Deleting', fill='█', max=300000)
+        for _ in range(300000):
+            bar.next()
+        requests.delete(f'{Y_URL}?path={backup_name}&permanently=true', headers=headers)
+        print("\nBackup deleted")
+        bar.finish()
+        sys.exit(0)
 
+    except requests.exceptions.ConnectionError:
+        print("Error: connection error")
+        sys.exit()
+    except requests.exceptions.Timeout:
+        print("Error: connection timeout")
+        sys.exit()
+    except requests.exceptions.RequestException as e:
+        print("Error: ", e)
+        sys.exit()
 
 
 def upload(path_to_file, folder_name):
@@ -45,7 +67,7 @@ def upload(path_to_file, folder_name):
 
 
 def backup(load_path):
-    folder_name = '{0}_{1}'.format(load_path.split('\\')[-1], datetime.now().strftime('%Y%m%d'))
+    folder_name = '{0}_{1}'.format(load_path.split('\\')[-1], datetime.now().strftime('%Y_%m_%d'))
     create_folder(folder_name)
     all_files = []
     for dir_path, _, files in os.walk(load_path):

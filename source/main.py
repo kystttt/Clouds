@@ -1,5 +1,5 @@
 from constants import *
-from yandex_request import backup
+from yandex_request import backup, delete_backup
 import sys
 
 
@@ -15,7 +15,7 @@ def main():
             sys.exit(0)
         mode = sys.argv[1].strip()
 
-        if not (os.path.exists(sys.argv[2])):
+        if  mode == "export" and not(os.path.exists(sys.argv[2])):
             print("Error: this directory was not found")
             sys.exit(0)
 
@@ -23,6 +23,8 @@ def main():
             backup(sys.argv[2].strip())
         elif mode == "import":
             pass
+        elif mode == "delete":
+            delete_backup(sys.argv[2].strip())
         else:
             print("Invalid mode")
     except KeyboardInterrupt:

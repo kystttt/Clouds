@@ -1,35 +1,62 @@
+import sys
 import requests
 from datetime import datetime
-from constants import*
+from constants import *
+from progress.bar import Bar
 import os
 
 
 def create_folder(path):
-    response = requests.get(f'{Y_URL}?path={path}', headers=headers)
-    if response.status_code == 404:
-        res = requests.put(f'{Y_URL}?path={path}', headers=headers)
-        print("Folder created:  ", res.status_code)
-    else:
-        print("Error:  ", response.status_code)
+    try:
+        response = requests.get(f'{Y_URL}?path={path}', headers=headers)
+        if response.status_code == 404:
+            requests.put(f'{Y_URL}?path={path}', headers=headers)
+    except requests.exceptions.ConnectionError:
+        print("Error: connection error")
+        sys.exit()
+    except requests.exceptions.Timeout:
+        print("Error: connection timeout")
+        sys.exit()
+    except requests.exceptions.RequestException as e:
+        print("Error: ", e)
+        sys.exit()
+
+
+
 
 def upload(path_to_file, folder_name):
     file_name = os.path.basename(path_to_file)
     full_path = f'/{folder_name}/{file_name}'.replace("\\", "/")
 
-    res = requests.get(f'{Y_URL}/upload?path={full_path}&overwrite=true', headers=headers).json()
-    with open(path_to_file, "rb") as f:
-        try:
+    try:
+        response = requests.get(f'{Y_URL}/upload?path={full_path}&overwrite=true', headers=headers)
+        res = response.json()
+        with open(path_to_file, "rb") as f:
             requests.put(res['href'], files={'file': f})
-        except KeyError:
-            print(res)
+    except KeyError:
+        print("Error: link doesn't exist")
+        sys.exit()
+    except PermissionError:
+        print("Error: access error")
+        sys.exit()
+    except requests.exceptions.Timeout:
+        print("Error: connection timeout")
+        sys.exit()
 
 
 def backup(load_path):
     folder_name = '{0}_{1}'.format(load_path.split('\\')[-1], datetime.now().strftime('%Y%m%d'))
     create_folder(folder_name)
+    all_files = []
+    for dir_path, _, files in os.walk(load_path):
+        for file in files:
+            all_files.append(os.path.join(dir_path, file))
+
+    bar = Bar("Uploading", fill='█', max=len(all_files))
 
     for dir_path, _, files in os.walk(load_path):
         relative_path = os.path.relpath(dir_path, load_path).replace('\\', '/')
+
         if relative_path == '.':
             remote_path = folder_name
 
@@ -40,4 +67,7 @@ def backup(load_path):
         for file in files:
             local_file_path = os.path.join(dir_path, file).replace('\\', '/')
             upload(local_file_path, remote_path)
+            bar.next()
+
+    bar.finish()
     print('Backup complete.')

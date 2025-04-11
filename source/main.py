@@ -1,4 +1,4 @@
-from constants import *
+import os
 from yandex_request import backup, delete_backup
 import sys
 

@@ -29,7 +29,6 @@ def create_folder(path):
         sys.exit()
 
 
-
 def delete_backup_on_cloud(backup_name):
     """
     Функция, которая удаляет бэкап с яндекс диска
@@ -44,10 +43,31 @@ def delete_backup_on_cloud(backup_name):
         if response.status_code == 404:
             print("Error: backup not found")
             sys.exit()
-        bar = Bar('Deleting', fill='█', max=300000)
+        def count_files(remote_path):
+            """
+            Функция для подсчета количества файлов на
+            диске, используется для progress bar
+            :param remote_path:
+            """
+            result = 0
+            item_response = requests.get(f'{Y_URL}?path='
+                                         f'{remote_path}&fields=_embedded.items'
+                                         f'.path, _embedded.items.type',
+                                         headers=headers)
+            items = (
+                item_response.json().get('_embedded', {}).get('items', []))
+            for item in items:
+                if item['type'] == 'dir':
+                    result += count_files(item['path'])
+                else:
+                    result += 1
+            return result
+        counter = count_files(backup_name)
+        bar = Bar('Deleting', fill='█', max=counter)
 
-        for _ in range(300000):
+        for _ in range(counter):
             bar.next()
+            time.sleep(0.8)
         requests.delete(
             f'{Y_URL}?path={backup_name}&permanently=true',
             headers=headers)
@@ -57,7 +77,7 @@ def delete_backup_on_cloud(backup_name):
             f'{Y_URL}?path={backup_name}', headers=headers)
 
         if confirm_response.status_code == 404:
-            print("\nBackup deleted")
+            print("Backup deleted!")
             sys.exit(0)
         print("Error: backup doesn't deleted",
               confirm_response.status_code)
@@ -85,8 +105,8 @@ def upload(path_to_file, folder_name):
     будет загружен файл.
     :raises KeyError - не оказалось href, то есть отсутствует ссылка
     на загрузку
-    :raises Permission Error - недостаточно прав для получения файла
-    на диске локальной машины
+    :raises Permission Error - недостаточно прав для получения
+    файла на диске локальной машины
     :raises requests.exceptions.Timeout - ловит таймаут при
     отправке запроса на яндекс диск
     """
@@ -98,7 +118,8 @@ def upload(path_to_file, folder_name):
         modification_time_on_pc = datetime.fromtimestamp(
             os.stat(path_to_file).st_mtime, tz=timezone.utc
         )
-        check_response = requests.get(f'{Y_URL}?path={full_path}', headers=headers)
+        check_response = requests.get(f'{Y_URL}?path={full_path}',
+                                      headers=headers)
         upload_file = True
         if check_response.status_code == 200:
             mod_time_str = requests.get(
@@ -110,10 +131,8 @@ def upload(path_to_file, folder_name):
                 modification_time_on_cloud = datetime.strptime(
                     mod_time_str, "%Y-%m-%d %H:%M:%S"
                 ).replace(tzinfo=timezone.utc)
-                upload_file = modification_time_on_cloud < modification_time_on_pc
-
-
-
+                upload_file = (modification_time_on_cloud
+                               < modification_time_on_pc)
             else:
                 upload_file = True
 
@@ -188,8 +207,8 @@ def download(backup_name, path_on_machine):
     в формате "D:\files\backup"
     :raises KeyError - не оказалось href, то есть отсутствует ссылка
     на загрузку
-    :raises Permission Error - недостаточно прав для получения файла
-    на диске локальной машины
+    :raises Permission Error - недостаточно прав для получения
+    файла на диске локальной машины
     :raises requests.exceptions.Timeout - ловит таймаут при
     отправке запроса на яндекс диск
     """
@@ -204,7 +223,9 @@ def download(backup_name, path_on_machine):
             :param remote_path:
             """
             result = 0
-            response = requests.get(f'{Y_URL}?path={remote_path}&fields=_embedded.items.path, _embedded.items.type', headers=headers)
+            response = requests.get(f'{Y_URL}?path='
+                                    f'{remote_path}&fields=_embedded.items.path, '
+                                    f'_embedded.items.type', headers=headers)
             items = response.json().get('_embedded', {}).get('items', [])
             for item in items:
                 if item['type'] == 'dir':
@@ -239,7 +260,8 @@ def download(backup_name, path_on_machine):
             for item in items:
                 file_path = item['path']
                 relative_path = file_path.replace(f'disk:/{backup_name}/', '')
-                local_path = os.path.join(str(full_local_path), relative_path).replace('/', '\\')
+                local_path = os.path.join(str(full_local_path),
+                                          relative_path).replace('/', '\\')
 
                 if item['type'] == 'dir':
                     if not(os.path.exists(local_path)):
@@ -251,8 +273,10 @@ def download(backup_name, path_on_machine):
                         headers=headers
                     ).json().get('modified').replace('T', ' ')[:19]
 
-                    modification_time_on_cloud = datetime.strptime(mod_time_str, "%Y-%m-%d %H:%M:%S").replace(
-                        tzinfo=timezone.utc)
+                    modification_time_on_cloud = (
+                        datetime.strptime(mod_time_str,
+                                          "%Y-%m-%d %H:%M:%S").replace(
+                        tzinfo=timezone.utc))
 
                     if not os.path.exists(local_path):
                         file_download = True
@@ -260,7 +284,8 @@ def download(backup_name, path_on_machine):
                         modification_time_on_pc = datetime.fromtimestamp(
                             os.stat(local_path).st_mtime, tz=timezone.utc
                         )
-                        file_download = modification_time_on_cloud > modification_time_on_pc
+                        file_download = (modification_time_on_cloud
+                                         > modification_time_on_pc)
 
                     if file_download:
                         download_response = requests.get(
@@ -278,8 +303,10 @@ def download(backup_name, path_on_machine):
                                     if chunk:
                                         f.write(chunk)
 
-                        mod_time_epoch = int(modification_time_on_cloud.timestamp())
-                        os.utime(local_path, (mod_time_epoch, mod_time_epoch))
+                        mod_time_epoch = int(
+                            modification_time_on_cloud.timestamp())
+                        os.utime(local_path, (mod_time_epoch,
+                                              mod_time_epoch))
 
         download_recursive(f'disk:/{backup_name}')
         bar.finish()
@@ -301,10 +328,13 @@ def delete_backup_on_pc(path):
     """
     Удаляет папку с резервной копией на ПК
     :param path: str - путь до директории
-    :raises NotADirectoryError: если указанный путь не является директорией.
-    :raises PermissionError: если у процесса нет прав на удаление директории.
-    :raises OSError: если возникает другая ошибка, связанная с удалением файлов,
-                     например, проблемы с файловой системой или заблокированные файлы.
+    :raises NotADirectoryError: если указанный путь не является
+    директорией.
+    :raises PermissionError: если у процесса нет прав на удаление
+    директории.
+    :raises OSError: если возникает другая ошибка, связанная с
+    удалением файлов, например, проблемы с файловой системой
+    или заблокированные файлы.
     """
     try:
         def count_files(directory_path):
@@ -327,7 +357,8 @@ def delete_backup_on_pc(path):
             она становится пустой
             :param directory_path:
             """
-            for dir_path, dir_names, file_names in os.walk(directory_path, topdown=False):
+            for dir_path, dir_names, file_names in os.walk(directory_path,
+                                                           topdown=False):
                 for file_name in file_names:
                     file_path = os.path.join(dir_path, file_name)
                     os.remove(file_path)

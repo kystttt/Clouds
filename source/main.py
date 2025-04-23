@@ -1,5 +1,4 @@
-import os
-from yandex_request import backup, delete_backup
+from yandex_request import backup, delete_backup,download
 import sys
 
 
@@ -12,21 +11,18 @@ def main():
     try:
         if len(sys.argv) < 3:
             print("Error: count of arguments should be 3")
-            sys.exit(0)
+            sys.exit()
         mode = sys.argv[1].strip()
-
-        if  mode == "export" and not(os.path.exists(sys.argv[2])):
-            print("Error: this directory was not found")
-            sys.exit(0)
 
         if mode == "export":
             backup(sys.argv[2].strip())
         elif mode == "import":
-            pass
+            download(sys.argv[2].strip(), sys.argv[3].strip())
         elif mode == "delete":
             delete_backup(sys.argv[2].strip())
         else:
             print("Invalid mode")
+
     except KeyboardInterrupt:
         print("\nExiting...")
         sys.exit(0)

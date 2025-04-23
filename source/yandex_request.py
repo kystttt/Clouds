@@ -7,6 +7,7 @@ from progress.bar import Bar
 import os
 
 
+
 def create_folder(path):
     """
     Функция, которая создает папку на яндекс диске
@@ -29,7 +30,7 @@ def create_folder(path):
 
 
 
-def delete_backup(backup_name):
+def delete_backup_on_cloud(backup_name):
     """
     Функция, которая удаляет бэкап с яндекс диска
     :param backup_name: str - название папки с резервным
@@ -84,9 +85,9 @@ def upload(path_to_file, folder_name):
     будет загружен файл.
     :raises KeyError - не оказалось href, то есть отсутствует ссылка
     на загрузку
-    :raise Permission Error - недостаточно прав для получения файла
+    :raises Permission Error - недостаточно прав для получения файла
     на диске локальной машины
-    :raise requests.exceptions.Timeout - ловит таймаут при
+    :raises requests.exceptions.Timeout - ловит таймаут при
     отправке запроса на яндекс диск
     """
     file_name = os.path.basename(path_to_file)
@@ -110,6 +111,7 @@ def upload(path_to_file, folder_name):
                     mod_time_str, "%Y-%m-%d %H:%M:%S"
                 ).replace(tzinfo=timezone.utc)
                 upload_file = modification_time_on_cloud < modification_time_on_pc
+
 
 
             else:
@@ -186,16 +188,16 @@ def download(backup_name, path_on_machine):
     в формате "D:\files\backup"
     :raises KeyError - не оказалось href, то есть отсутствует ссылка
     на загрузку
-    :raise Permission Error - недостаточно прав для получения файла
+    :raises Permission Error - недостаточно прав для получения файла
     на диске локальной машины
-    :raise requests.exceptions.Timeout - ловит таймаут при
+    :raises requests.exceptions.Timeout - ловит таймаут при
     отправке запроса на яндекс диск
     """
     try:
         full_local_path = os.path.join(path_on_machine, backup_name)
         if not os.path.exists(full_local_path):
             os.makedirs(full_local_path, exist_ok=False)
-        def count_items(remote_path):
+        def count_files(remote_path):
             """
             Функция для подсчета количества файлов на
             диске, используется для progress bar
@@ -206,12 +208,12 @@ def download(backup_name, path_on_machine):
             items = response.json().get('_embedded', {}).get('items', [])
             for item in items:
                 if item['type'] == 'dir':
-                    result += count_items(item['path'])
+                    result += count_files(item['path'])
                 else:
                     result += 1
             return result
 
-        count_of_files = count_items(backup_name)
+        count_of_files = count_files(backup_name)
         bar = Bar('Downloading', fill='█', max=count_of_files)
 
 
@@ -291,5 +293,60 @@ def download(backup_name, path_on_machine):
         print("Error: connection timeout")
         sys.exit()
     except requests.exceptions.RequestException as e:
+        print("Error: ", e)
+        sys.exit()
+
+
+def delete_backup_on_pc(path):
+    """
+    Удаляет папку с резервной копией на ПК
+    :param path: str - путь до директории
+    :raises NotADirectoryError: если указанный путь не является директорией.
+    :raises PermissionError: если у процесса нет прав на удаление директории.
+    :raises OSError: если возникает другая ошибка, связанная с удалением файлов,
+                     например, проблемы с файловой системой или заблокированные файлы.
+    """
+    try:
+        def count_files(directory_path):
+            """
+            Функция для подсчета файлов бэкапа на ПК
+            :param directory_path: str - путь до бэкапа
+            :return: возвращает количество файлов в директории
+            """
+            count = 0
+            for dir_path, _, file_names in os.walk(directory_path):
+                for _ in file_names:
+                    count += 1
+            return count
+
+        bar = Bar('Deleting',  fill='█', max=count_files(path))
+
+        def remove_recursive(directory_path):
+            """
+            Удаляет файлы в директории и саму директорию, когда
+            она становится пустой
+            :param directory_path:
+            """
+            for dir_path, dir_names, file_names in os.walk(directory_path, topdown=False):
+                for file_name in file_names:
+                    file_path = os.path.join(dir_path, file_name)
+                    os.remove(file_path)
+                    bar.next()
+                    time.sleep(0.3)
+                for dir_name in dir_names:
+                    os.rmdir(os.path.join(dir_path, dir_name))
+
+            os.rmdir(path)
+        remove_recursive(path)
+        bar.finish()
+        print("Backup deleted!")
+        sys.exit(0)
+    except FileNotFoundError:
+        print(f"Error: {path} not found")
+        sys.exit()
+    except PermissionError:
+        print("Error: permission error")
+        sys.exit()
+    except OSError as e:
         print("Error: ", e)
         sys.exit()

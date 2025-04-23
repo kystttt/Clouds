@@ -1,4 +1,4 @@
-from yandex_request import backup, delete_backup,download
+from yandex_request import backup, delete_backup_on_cloud,download, delete_backup_on_pc
 import sys
 
 
@@ -7,6 +7,8 @@ def main():
         Функция, реализующая логику утилиты:
         import - импортировать папку/файл с облачного хранилища
         export - загрузить папку/файл в облачное хранилище
+        delete - удалить резервное сохранение с диска
+        remove - удалить резервное сохранение с ПК
         """
     try:
         if len(sys.argv) < 3:
@@ -14,12 +16,14 @@ def main():
             sys.exit()
         mode = sys.argv[1].strip()
 
-        if mode == "export":
+        if mode == "upload":
             backup(sys.argv[2].strip())
-        elif mode == "import":
+        elif mode == "download":
             download(sys.argv[2].strip(), sys.argv[3].strip())
         elif mode == "delete":
-            delete_backup(sys.argv[2].strip())
+            delete_backup_on_cloud(sys.argv[2].strip())
+        elif mode == "remove":
+            delete_backup_on_pc(sys.argv[2].strip())
         else:
             print("Invalid mode")
 

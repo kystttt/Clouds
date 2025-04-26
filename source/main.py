@@ -1,4 +1,5 @@
 from yandex_request import backup, delete_backup_on_cloud,download, delete_backup_on_pc
+from google_request import delete_backup_on_drive
 import sys
 
 

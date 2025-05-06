@@ -1,5 +1,7 @@
-from yandex_request import backup, delete_backup_on_cloud,download, delete_backup_on_pc
-from google_request import delete_backup_on_drive
+from system_function import  delete_backup_on_pc
+from YandexAction import YandexAction
+from GoogleAction import GoogleAction
+from constants import Y_URL, headers
 import sys
 
 
@@ -8,23 +10,40 @@ def main():
         Функция, реализующая логику утилиты:
         import - импортировать папку/файл с облачного хранилища
         export - загрузить папку/файл в облачное хранилище
-        delete - удалить резервное сохранение с диска
+        y_delete - удалить резервное сохранение с яндекс диска
+        g_delete - удалить резервное сохранение с гугл диска
         remove - удалить резервное сохранение с ПК
+
         """
     try:
+        yandex_action = YandexAction(Y_URL, headers)
+        google_action = GoogleAction()
         if len(sys.argv) < 3:
             print("Error: count of arguments should be 3")
-            sys.exit()
+            sys.exit(1)
         mode = sys.argv[1].strip()
 
-        if mode == "upload":
-            backup(sys.argv[2].strip())
-        elif mode == "download":
-            download(sys.argv[2].strip(), sys.argv[3].strip())
-        elif mode == "delete":
-            delete_backup_on_cloud(sys.argv[2].strip())
+        if mode == "y_upload":
+            yandex_action.backup(sys.argv[2].strip())
+        elif mode == "y_download":
+            if len(sys.argv) < 4:
+                print("Error: count of arguments should be 4")
+                sys.exit(1)
+            yandex_action.download(sys.argv[2].strip(), sys.argv[3].strip())
+        elif mode == "y_delete":
+            yandex_action.delete_backup_on_cloud(sys.argv[2].strip())
+        elif mode == "y_list_of_files":
+            yandex_action.list_of_files_on_backup(sys.argv[2].strip())
         elif mode == "remove":
             delete_backup_on_pc(sys.argv[2].strip())
+        elif mode == 'g_upload':
+            google_action.backup(sys.argv[2].strip())
+        elif mode == 'g_download':
+            google_action.download(sys.argv[2].strip(), sys.argv[3].strip())
+        elif mode == "g_delete":
+            google_action.delete_backup_on_cloud(sys.argv[2].strip())
+        elif mode == "g_list_of_files":
+            google_action.list_of_files_on_backup(sys.argv[2].strip())
         else:
             print("Invalid mode")
 

@@ -2,7 +2,7 @@ import os
 import mimetypes
 from datetime import datetime, timezone
 from googleapiclient.http import MediaFileUpload
-from google_auth import oauth_to_drive
+from .google_auth import oauth_to_drive
 from progress.bar import Bar
 from googleapiclient.http import MediaIoBaseDownload
 import io

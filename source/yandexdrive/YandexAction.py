@@ -11,7 +11,7 @@ class YandexAction:
     def __init__(self, y_url, headers):
         self.Y_URL = y_url
         self.headers = headers
-        super().__init__()
+
 
     @retry_on_error()
     def create_folder(self, path):

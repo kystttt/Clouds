@@ -1,4 +1,4 @@
-from secret_keys import *
+from .secret_keys import *
 
 
 Y_URL = "https://cloud-api.yandex.net/v1/disk/resources"

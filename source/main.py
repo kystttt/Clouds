@@ -1,19 +1,19 @@
 from system_function import  SystemFunction
 from yandexdrive.YandexAction import YandexAction
 from googledrive.GoogleAction import GoogleAction
-from oauthfiles.constants import Y_URL, headers
+from constants import Y_URL, headers
 import sys
 
 
 def main():
     """
         Функция, реализующая логику утилиты:
-        import - импортировать папку/файл с облачного хранилища
-        export - загрузить папку/файл в облачное хранилище
+        y_download/g_download - импортировать папку/файл с облачного хранилища
+        y_upload/g_upload - загрузить папку/файл в облачное хранилище
         y_delete - удалить резервное сохранение с яндекс диска
         g_delete - удалить резервное сохранение с гугл диска
         delete - удалить резервное сохранение с ПК
-
+        y_list_of_files/g_list_of_files - листинг файлов в бэкапе на облаке
         """
     try:
         system_function = SystemFunction()

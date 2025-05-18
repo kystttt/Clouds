@@ -2,15 +2,15 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from oauthfiles.constants import scopes
+from constants import scopes
 import os
 import sys
 
 
 def oauth_to_drive():
     creds = None
-    token_path = '../source/oauthfiles/token.json'
-    credentials_path = '../oauthfiles/client_secret.json'
+    token_path = '..token.json'
+    credentials_path = '../source/client_secret.json'
 
     try:
         if os.path.exists(token_path):

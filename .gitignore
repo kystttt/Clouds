@@ -176,5 +176,6 @@ cython_debug/
 
 secret_keys.py
 token.json
+..token.json
 credentials.json
 client_secret.json

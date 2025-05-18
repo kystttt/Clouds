@@ -120,7 +120,7 @@ class GoogleAction:
 
 
     @retry_on_error()
-    def download(self, path_on_machine, backup_name):
+    def download(self, backup_name, path_on_machine):
         """
         Скачивает бэкап с Google Диска
         :param path_on_machine: локальный путь на ПК, куда скачивать

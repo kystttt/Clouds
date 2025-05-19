@@ -1,10 +1,12 @@
 from progress.bar import Bar
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from error_decorator import retry_on_error
 import sys
 import os
 from datetime import datetime, timezone
 import time
+from threading import Lock
 
 
 class YandexAction:
@@ -23,6 +25,7 @@ class YandexAction:
             f'{self.Y_URL}?path={path}', headers=self.headers)
         if response.status_code == 404:
             requests.put(f'{self.Y_URL}?path={path}', headers=self.headers)
+
 
     @retry_on_error()
     def delete_backup_on_cloud(self, backup_name):
@@ -57,6 +60,7 @@ class YandexAction:
             sys.exit(0)
         print("Error: backup doesn't deleted",
               confirm_response.status_code)
+
 
     @retry_on_error()
     def upload(self, path_to_file, folder_name):
@@ -112,6 +116,7 @@ class YandexAction:
             with open(path_to_file, "rb") as f:
                 requests.put(res['href'], files={'file': f})
 
+
     @retry_on_error()
     def _count_files(self, remote_path):
         """
@@ -136,32 +141,21 @@ class YandexAction:
     @retry_on_error()
     def download(self, backup_name, path_on_machine):
         """
-        Загружает бэкап на устройство
-        :param backup_name: имя резервного сохранения
-        :param path_on_machine: путь на устройстве
-        в формате "D:\files\backup"
-        :raises KeyError - не оказалось href, то есть отсутствует ссылка
-        на загрузку
-        :raises Permission Error - недостаточно прав для получения
-        файла на диске локальной машины
-        :raises requests.exceptions.Timeout - ловит таймаут при
-        отправке запроса на яндекс диск
-        """
+        Скачивает файл на устройство, в случае, если файл был
+        загружен ранее, смотрит, изменился ли файл на облаке,
+        в случае, если изменился, то скачиваем на устройство,
+        если нет - то не скачиваем, в случае отсутсвия файл на
+        устройстве - скачиваем его.
+        :param backup_name: str - название бэкапа
+        :param path_on_machine: str - Путь до файла на диске
+         """
         full_local_path = os.path.join(path_on_machine, backup_name)
         if not os.path.exists(full_local_path):
             os.makedirs(full_local_path, exist_ok=False)
-        count_of_files = self._count_files(backup_name)
-        bar = Bar('Downloading', fill='█', max=count_of_files)
 
-        def download_recursive(remote_path):
-            """
-            Скачивает файл на устройство, в случае, если файл был
-            загружен ранее, смотрит, изменился ли файл на облаке,
-            в случае, если изменился, то скачиваем на устройство,
-            если нет - то не скачиваем, в случае отсутсвия файл на
-            устройстве - скачиваем его.
-            :param remote_path: Путь до файла на диске
-            """
+        files_to_download = []
+
+        def collect_files(remote_path, local_base):
             response = requests.get(
                 f'{self.Y_URL}?path={remote_path}'
                 f'&fields=_embedded.items.path,_embedded.items.type',
@@ -171,63 +165,72 @@ class YandexAction:
                 print("Error: backup not found")
                 sys.exit(1)
             items = response.json().get('_embedded', {}).get('items', [])
-
             for item in items:
                 file_path = item['path']
-                relative_path = file_path.replace(f'disk:/{backup_name}/', '')
-                local_path = os.path.join(str(full_local_path),
-                                          relative_path).replace('/', '\\')
-
+                relative_path = file_path.replace(f'disk:/{backup_name}', '').lstrip('/')
+                local_path = os.path.join(local_base, relative_path)
                 if item['type'] == 'dir':
-                    if not (os.path.exists(local_path)):
+                    if not os.path.exists(local_path):
                         os.makedirs(local_path, exist_ok=True)
-                    download_recursive(file_path)
+                    collect_files(file_path, local_base)
                 else:
                     mod_time_str = requests.get(
                         f'{self.Y_URL}?path={file_path}&fields=modified',
                         headers=self.headers
                     ).json().get('modified').replace('T', ' ')[:19]
-
-                    modification_time_on_cloud = (
-                        datetime.strptime(mod_time_str,
-                                          "%Y-%m-%d %H:%M:%S").replace(
-                            tzinfo=timezone.utc))
-
+                    modification_time_on_cloud = datetime.strptime(
+                        mod_time_str, "%Y-%m-%d %H:%M:%S"
+                    ).replace(tzinfo=timezone.utc)
                     if not os.path.exists(local_path):
                         file_download = True
                     else:
                         modification_time_on_pc = datetime.fromtimestamp(
                             os.stat(local_path).st_mtime, tz=timezone.utc
                         )
-                        file_download = (modification_time_on_cloud
-                                         > modification_time_on_pc)
-                        print('\n', file_path, f'{modification_time_on_cloud}   pc =  {modification_time_on_pc}')
-
+                        file_download = modification_time_on_cloud > modification_time_on_pc
                     if file_download:
-                        download_response = requests.get(
-                            f'{self.Y_URL}/download?path={file_path}',
-                            headers=self.headers
-                        )
-                        link = download_response.json().get('href')
-                        if not link:
-                            print(f'Error: download link {file_path} not found')
-                            continue
-                        bar.next()
-                        with requests.get(link, stream=True) as r:
-                            with open(local_path, 'wb') as f:
-                                for chunk in r.iter_content(chunk_size=8192):
-                                    if chunk:
-                                        f.write(chunk)
+                        files_to_download.append((file_path, local_path, modification_time_on_cloud))
 
-                        mod_time_epoch = int(
-                            modification_time_on_cloud.timestamp())
-                        os.utime(local_path, (mod_time_epoch,
-                                              mod_time_epoch))
+        collect_files(f'disk:/{backup_name}', full_local_path)
+        if not files_to_download:
+            print("All files are up to date.")
+            sys.exit(0)
 
-        download_recursive(f'disk:/{backup_name}')
+        bar = Bar('Downloading', fill='█', max=len(files_to_download))
+        bar_lock = Lock()
+
+        def download_file(remote_file_path, local_file_path, cloud_mod_time):
+            try:
+                download_response = requests.get(
+                    f'{self.Y_URL}/download?path={remote_file_path}',
+                    headers=self.headers
+                )
+                link = download_response.json().get('href')
+                if not link:
+                    print(f'Error: download link {remote_file_path} not found')
+                    return
+
+                with requests.get(link, stream=True) as r:
+                    with open(local_file_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+
+                mod_time_epoch = int(cloud_mod_time.timestamp())
+                os.utime(local_file_path, (mod_time_epoch, mod_time_epoch))
+
+            finally:
+                with bar_lock:
+                    bar.next()
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(download_file, *args) for args in files_to_download]
+            for _ in as_completed(futures):
+                pass
         bar.finish()
         print("Download completed!")
         sys.exit(0)
+
 
     def backup(self, load_path):
         """
@@ -248,22 +251,26 @@ class YandexAction:
         for dir_path, _, files in os.walk(load_path):
             for file in files:
                 all_files.append(os.path.join(dir_path, file))
-
         bar = Bar("Uploading", fill='█', max=len(all_files))
-        for dir_path, _, files in os.walk(load_path):
-            relative_path = os.path.relpath(dir_path, load_path).replace('\\', '/')
-            remote_path = folder_name if relative_path == '.' else f'{folder_name}/{relative_path}'
+        bar_lock = Lock()
 
+        def upload_process(file_path):
+            relative_path = os.path.relpath(os.path.dirname(file_path), load_path).replace('\\', '/')
+            remote_path = folder_name if relative_path == '.' else f'{folder_name}/{relative_path}'
             if relative_path != '.':
                 self.create_folder(remote_path)
-
-            for file in files:
-                local_file_path = os.path.join(dir_path, file).replace('\\', '/')
-                self.upload(local_file_path, remote_path)
+            self.upload(file_path, remote_path)
+            with bar_lock:
                 bar.next()
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(upload_process, file) for file in all_files]
+            for _ in as_completed(futures):
+                pass
 
         bar.finish()
         print('Backup completed!')
+        sys.exit(0)
 
 
     @retry_on_error()
@@ -273,20 +280,18 @@ class YandexAction:
         :param backup_name: str - название бэкапа на облаке
         """
         print(f'{backup_name}: ')
+
         def print_recursive(folder, indent=1):
-           response = requests.get(
-               f'{self.Y_URL}?path={folder}&fields=_embedded.items.name,_embedded.items.type,_embedded.items.path',
-            headers=self.headers
-           )
-           items = response.json().get('_embedded', {}).get('items', [])
-           for item in items:
-               if item['type'] == 'dir':
-                   print(' ' * indent + f"{item['name']}")
-                   print_recursive(item['path'], indent + 2)
-               else:
-                   print(' ' * indent + item['name'])
+            response = requests.get(
+                f'{self.Y_URL}?path={folder}&fields=_embedded.items.name,_embedded.items.type,_embedded.items.path',
+                headers=self.headers
+            )
+            items = response.json().get('_embedded', {}).get('items', [])
+            for item in items:
+                if item['type'] == 'dir':
+                    print(' ' * indent + f"{item['name']}:")
+                    print_recursive(item['path'], indent + 2)
+                else:
+                    print(' ' * indent + item['name'])
+
         print_recursive(backup_name)
-
-
-
-

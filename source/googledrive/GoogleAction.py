@@ -29,6 +29,7 @@ class GoogleAction:
         backup_folder_name = f"{folder_name}_{date_str}"
         self.upload(local_path, backup_folder_name)
         print("Backup completed!")
+        sys.exit(0)
 
 
     @retry_on_error()
@@ -202,6 +203,7 @@ class GoogleAction:
         download_recursive(backup_folder_id, target_path)
         bar.finish()
         print("Download completed!")
+        sys.exit(0)
 
     @retry_on_error()
     def delete_backup_on_cloud(self, backup_name):
@@ -228,6 +230,7 @@ class GoogleAction:
             sys.exit(0)
         else:
             print("Error: backup wasn't deleted")
+            sys.exit(1)
 
 
     @retry_on_error()
@@ -265,7 +268,7 @@ class GoogleAction:
             ).execute().get("files", [])
 
             for item in items:
-                print(f"{indent} {item['name']}")
+                print(f"{indent} {item['name']}:")
                 if item['mimeType'] == 'application/vnd.google-apps.folder':
                     print_recursive(item['id'], indent + "  ")
         print_recursive(folder_id)

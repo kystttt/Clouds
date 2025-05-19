@@ -8,6 +8,10 @@ import sys
 
 
 def oauth_to_drive():
+    """
+    Функция для авторизации пользователя через гугл аккаунт
+    :return: возвращает собранный токен
+    """
     creds = None
     token_path = '..token.json'
     credentials_path = '../source/client_secret.json'

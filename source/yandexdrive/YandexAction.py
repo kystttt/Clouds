@@ -16,7 +16,7 @@ class YandexAction:
     @retry_on_error()
     def create_folder(self, path):
         """
-           Метод, которая создает папку на яндекс диске
+           Метод, который создает папку на яндекс диске
            :param path: str - название папки на яндекс диске
            """
         response = requests.get(
@@ -27,7 +27,7 @@ class YandexAction:
     @retry_on_error()
     def delete_backup_on_cloud(self, backup_name):
         """
-        Метод, которая удаляет бэкап с яндекс диска
+        Метод, который удаляет бэкап с яндекс диска
         :param backup_name: str - название папки с резервным
          сохранением на диске
         <название_папки>_<дата_бэкапа>
@@ -61,7 +61,7 @@ class YandexAction:
     @retry_on_error()
     def upload(self, path_to_file, folder_name):
         """
-        Метод, которая выгружает файл на яндекс диск
+        Метод, который выгружает файл на яндекс диск
         Если файл был загружен в папку ранее, то проверяем,
         изменяли ли файл с момента его загрузки, если да, то
         загружаем его на диск, нет - не выгружаем, в случае, если
@@ -270,7 +270,7 @@ class YandexAction:
     def list_of_files_on_backup(self, backup_name):
         """
         Метод, который выводит листинг файлов и папок в бэкапе
-        //:param backup_name: str - название бэкапа на облаке
+        :param backup_name: str - название бэкапа на облаке
         """
         print(f'{backup_name}: ')
         def print_recursive(folder, indent=1):

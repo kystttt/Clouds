@@ -4,6 +4,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from error_decorator import retry_on_error
 import sys
 import os
+from io import BytesIO
+import gzip
+import shutil
 from datetime import datetime, timezone
 import time
 from threading import Lock
@@ -62,6 +65,28 @@ class YandexAction:
               confirm_response.status_code)
 
 
+    def compress(self, path):
+        """
+        Метод, который сжимает файл в .gzip
+        :param path: str - Путь до файла на пк
+        :return: возвращает файл сжатый, а также его название + .gz
+        """
+        buffer = BytesIO()
+        with open(path, 'rb') as f_in, gzip.GzipFile(fileobj=buffer, mode='wb') as f_out:
+            f_out.write(f_in.read())
+        buffer.seek(0)
+        compressed_name =os.path.basename(path) + ".gz"
+        original_mtime = os.stat(path).st_mtime
+        with open(compressed_name, 'wb') as f:
+            f.write(buffer.getvalue())
+        os.utime(compressed_name, (original_mtime, original_mtime))
+        with open(compressed_name, 'rb') as f:
+            buffer = BytesIO(f.read())
+        buffer.seek(0)
+        os.remove(compressed_name)
+        return buffer, compressed_name
+
+
     @retry_on_error()
     def upload(self, path_to_file, folder_name):
         """
@@ -109,12 +134,13 @@ class YandexAction:
             upload_file = True
 
         if upload_file:
+            compressed_buffer, compressed_name = self.compress(path_to_file)
+            full_path = f'/{folder_name}/{compressed_name}'.replace("\\", "/")
             response = requests.get(
                 f'{self.Y_URL}/upload?path={full_path}&overwrite=true',
                 headers=self.headers)
             res = response.json()
-            with open(path_to_file, "rb") as f:
-                requests.put(res['href'], files={'file': f})
+            requests.put(res['href'], data=compressed_buffer.getvalue())
 
 
     @retry_on_error()
@@ -168,6 +194,9 @@ class YandexAction:
             for item in items:
                 file_path = item['path']
                 relative_path = file_path.replace(f'disk:/{backup_name}', '').lstrip('/')
+                is_gz = relative_path.endswith('.gz')
+                if is_gz:
+                    relative_path = relative_path[:-3]
                 local_path = os.path.join(local_base, relative_path)
                 if item['type'] == 'dir':
                     if not os.path.exists(local_path):
@@ -189,7 +218,7 @@ class YandexAction:
                         )
                         file_download = modification_time_on_cloud > modification_time_on_pc
                     if file_download:
-                        files_to_download.append((file_path, local_path, modification_time_on_cloud))
+                        files_to_download.append((file_path, local_path, modification_time_on_cloud, is_gz))
 
         collect_files(f'disk:/{backup_name}', full_local_path)
         if not files_to_download:
@@ -199,7 +228,7 @@ class YandexAction:
         bar = Bar('Downloading', fill='█', max=len(files_to_download))
         bar_lock = Lock()
 
-        def download_file(remote_file_path, local_file_path, cloud_mod_time):
+        def download_file(remote_file_path, local_file_path, cloud_mod_time, is_gz):
             try:
                 download_response = requests.get(
                     f'{self.Y_URL}/download?path={remote_file_path}',
@@ -209,13 +238,18 @@ class YandexAction:
                 if not link:
                     print(f'Error: download link {remote_file_path} not found')
                     return
-
+                temp_file = local_file_path + ('.gz' if is_gz else '')
                 with requests.get(link, stream=True) as r:
-                    with open(local_file_path, 'wb') as f:
+                    with open(temp_file, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=8192):
                             if chunk:
                                 f.write(chunk)
 
+                if is_gz:
+                    with gzip.open(temp_file, 'rb') as f_in:
+                        with open(local_file_path, 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                    os.remove(temp_file)
                 mod_time_epoch = int(cloud_mod_time.timestamp())
                 os.utime(local_file_path, (mod_time_epoch, mod_time_epoch))
 

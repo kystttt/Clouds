@@ -138,7 +138,6 @@ class GoogleAction:
                 raise FileNotFoundError(f"Folder '{name}' not found in Google Drive.")
             return items[0]["id"]
 
-
         def list_folder_contents(folder_id):
             files = []
             page_token = None
@@ -154,7 +153,6 @@ class GoogleAction:
                     break
             return files
 
-
         def count_files(folder_id):
             """Рекурсивно подсчитывает количество файлов"""
             count = 0
@@ -164,7 +162,6 @@ class GoogleAction:
                 else:
                     count += 1
             return count
-
 
         def download_recursive(folder_id, current_local_path):
             os.makedirs(current_local_path, exist_ok=True)

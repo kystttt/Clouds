@@ -1,10 +1,12 @@
 import os
 from progress.bar import Bar
 import time
-import sys
-from error_decorator import retry_on_error
+from source.error_decorator import retry_on_error
+
 
 class SystemFunction:
+    def __init__(self, interactive=True):
+        self.interactive = interactive
 
     @retry_on_error()
     def delete_backup_on_pc(self, path):
@@ -32,7 +34,7 @@ class SystemFunction:
                     count += 1
             return count
 
-        bar = Bar('Deleting', fill='█', max=count_files(path))
+        bar = Bar("Deleting", fill="█", max=count_files(path))
 
         def remove_recursive(directory_path):
             """
@@ -40,8 +42,9 @@ class SystemFunction:
             она становится пустой
             :param directory_path:
             """
-            for dir_path, dir_names, file_names in os.walk(directory_path,
-                                                           topdown=False):
+            for dir_path, dir_names, file_names in os.walk(
+                directory_path, topdown=False
+            ):
                 for file_name in file_names:
                     file_path = os.path.join(dir_path, file_name)
                     os.remove(file_path)
@@ -55,4 +58,4 @@ class SystemFunction:
         remove_recursive(path)
         bar.finish()
         print("Backup deleted!")
-        sys.exit(0)
+        return

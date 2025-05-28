@@ -1,20 +1,20 @@
-from system_function import  SystemFunction
-from yandexdrive.YandexAction import YandexAction
-from googledrive.GoogleAction import GoogleAction
-from constants import Y_URL, headers
+from source.yandexdrive.YandexAction import YandexAction
+from source.googledrive.GoogleAction import GoogleAction
+from source.constants import Y_URL, headers
 import sys
+from source.SystemFunction import SystemFunction
 
 
 def main():
     """
-        Функция, реализующая логику утилиты:
-        y_download/g_download - импортировать папку/файл с облачного хранилища
-        y_upload/g_upload - загрузить папку/файл в облачное хранилище
-        y_delete - удалить резервное сохранение с яндекс диска
-        g_delete - удалить резервное сохранение с гугл диска
-        delete - удалить резервное сохранение с ПК
-        y_list_of_files/g_list_of_files - листинг файлов в бэкапе на облаке
-        """
+    Функция, реализующая логику утилиты:
+    y_download/g_download - импортировать папку/файл с облачного хранилища
+    y_upload/g_upload - загрузить папку/файл в облачное хранилище
+    y_delete - удалить резервное сохранение с яндекс диска
+    g_delete - удалить резервное сохранение с гугл диска
+    delete - удалить резервное сохранение с ПК
+    y_list_of_files/g_list_of_files - листинг файлов в бэкапе на облаке
+    """
     try:
         system_function = SystemFunction()
         yandex_action = YandexAction(Y_URL, headers)
@@ -37,9 +37,9 @@ def main():
             yandex_action.list_of_files_on_backup(sys.argv[2].strip())
         elif mode == "delete":
             system_function.delete_backup_on_pc(sys.argv[2].strip())
-        elif mode == 'g_upload':
+        elif mode == "g_upload":
             google_action.backup(sys.argv[2].strip())
-        elif mode == 'g_download':
+        elif mode == "g_download":
             if len(sys.argv) < 4:
                 print("Error: count of arguments should be 4")
                 sys.exit(1)
@@ -56,5 +56,5 @@ def main():
         sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

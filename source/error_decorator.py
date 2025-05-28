@@ -1,9 +1,11 @@
 import time
 import functools
-import sys
+import os
 
 
-def retry_on_error(max_retries=3, delay=10, prompt_message="Error! Try again? (yes/no)\n"):
+def retry_on_error(
+    max_retries=3, delay=10, prompt_message="Error! Try again?" "(yes/no)\n"
+):
     """
     Декоратор, вызывающий исключения для обертки функций
     :param max_retries: int - максимальное количество попыток,
@@ -16,6 +18,7 @@ def retry_on_error(max_retries=3, delay=10, prompt_message="Error! Try again? (y
     отказа
     :return: возвращает декоратор
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -26,16 +29,23 @@ def retry_on_error(max_retries=3, delay=10, prompt_message="Error! Try again? (y
                 except Exception as e:
                     print(f"Error: {e}")
                     attempt += 1
-                    if attempt > max_retries:
-                        print("Maximum number of retries reached!")
-                        sys.exit(1)
+
+                    if os.environ.get("UNIT_TEST_MODE") == "1":
+                        raise
+
+                    interactive = getattr(self, "interactive", True)
+                    if not interactive or attempt > max_retries:
+                        print("Operation stopped")
+                        return
 
                     user_answer = input(prompt_message).strip().lower()
                     if user_answer != "yes":
                         print("Operation stopped")
-                        sys.exit(1)
+                        return
                     else:
                         print(f"Try again after {delay} seconds")
                         time.sleep(delay)
+
         return wrapper
+
     return decorator

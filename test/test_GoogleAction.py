@@ -7,7 +7,8 @@ from source.googledrive.GoogleAction import GoogleAction
 class TestGoogleAction(unittest.TestCase):
     def setUp(self):
         patcher = patch(
-            "source.googledrive.GoogleAction.oauth_to_drive", return_value=MagicMock()
+            "source.googledrive.GoogleAction.oauth_to_drive",
+            return_value=MagicMock()
         )
         self.mock_auth = patcher.start()
         self.addCleanup(patcher.stop)
@@ -43,7 +44,8 @@ class TestGoogleAction(unittest.TestCase):
             call(os.path.join(root_path, "file1.txt"), "path_id"),
             call(os.path.join(subdir_path, "file2.txt"), "subdir_id"),
         ]
-        action._upload_file.assert_has_calls(expected_upload_calls, any_order=True)
+        action._upload_file.assert_has_calls(expected_upload_calls,
+                                             any_order=True)
 
         self.assertEqual(action._upload_file.call_count, 2)
         self.assertEqual(mock_bar.next.call_count, 2)
@@ -62,14 +64,16 @@ class TestGoogleAction(unittest.TestCase):
         action._get_or_create_folder = MagicMock(return_value="rootfolder_id")
         action._upload_file = MagicMock()
         action.upload(root_path)
-        action._get_or_create_folder.assert_called_once_with("rootfolder", None)
+        action._get_or_create_folder.assert_called_once_with("rootfolder",
+                                                             None)
 
         expected_upload_calls = [
             call(os.path.join(root_path, "fileA.txt"), "rootfolder_id"),
             call(os.path.join(root_path, "fileB.txt"), "rootfolder_id"),
             call(os.path.join(root_path, "fileC.txt"), "rootfolder_id"),
         ]
-        action._upload_file.assert_has_calls(expected_upload_calls, any_order=True)
+        action._upload_file.assert_has_calls(expected_upload_calls,
+                                             any_order=True)
 
         self.assertEqual(action._upload_file.call_count, 3)
         self.assertEqual(mock_bar.next.call_count, 3)
@@ -80,10 +84,12 @@ class TestGoogleAction(unittest.TestCase):
         self.mock_files.list.return_value.execute.return_value = {
             "files": [{"id": folder_id}]
         }
-        result = self.action._get_or_create_folder("MyFolder", None)
+        result = self.action._get_or_create_folder("MyFolder",
+                                                   None)
         self.assertEqual(result, folder_id)
         self.mock_files.create.assert_not_called()
-        expected_query = "name='MyFolder' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        expected_query = ("name='MyFolder' and mimeType='application/"
+                          "vnd.google-apps.folder' and trashed=false")
         self.mock_files.list.assert_called_with(
             q=expected_query, spaces="drive", fields="files(id)"
         )
@@ -97,7 +103,9 @@ class TestGoogleAction(unittest.TestCase):
         result = self.action._get_or_create_folder("MyFolder", parent_id)
         self.assertEqual(result, folder_id)
         self.mock_files.create.assert_not_called()
-        expected_query = f"name='MyFolder' and mimeType='application/vnd.google-apps.folder' and trashed=false and '{parent_id}' in parents"
+        expected_query = (f"name='MyFolder' and mimeType='application/"
+                          f"vnd.google-apps.folder' and trashed=false"
+                          f" and '{parent_id}' in parents")
         self.mock_files.list.assert_called_with(
             q=expected_query, spaces="drive", fields="files(id)"
         )
@@ -105,47 +113,57 @@ class TestGoogleAction(unittest.TestCase):
     def test_get_or_create_folder_not_exists_creates(self):
         self.mock_files.list.return_value.execute.return_value = {"files": []}
         new_folder_id = "new-folder-id"
-        self.mock_files.create.return_value.execute.return_value = {"id": new_folder_id}
+        self.mock_files.create.return_value.execute.return_value = {
+            "id": new_folder_id}
         parent_id = "parent123"
-        result = self.action._get_or_create_folder("NewFolder", parent_id)
+        result = self.action._get_or_create_folder("NewFolder",
+                                                   parent_id)
         self.assertEqual(result, new_folder_id)
         expected_body = {
             "name": "NewFolder",
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [parent_id],
         }
-        self.mock_files.create.assert_called_with(body=expected_body, fields="id")
+        self.mock_files.create.assert_called_with(body=expected_body,
+                                                  fields="id")
         self.mock_files.create.return_value.execute.assert_called_once()
 
     def test_get_or_create_folder_not_exists_creates_no_parent(self):
         self.mock_files.list.return_value.execute.return_value = {"files": []}
         new_folder_id = "new-folder-id-2"
-        self.mock_files.create.return_value.execute.return_value = {"id": new_folder_id}
-        result = self.action._get_or_create_folder("NewFolderNoParent", None)
+        self.mock_files.create.return_value.execute.return_value = {
+            "id": new_folder_id}
+        result = self.action._get_or_create_folder("NewFolderNoParent",
+                                                   None)
         self.assertEqual(result, new_folder_id)
         expected_body = {
             "name": "NewFolderNoParent",
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [],
         }
-        self.mock_files.create.assert_called_with(body=expected_body, fields="id")
+        self.mock_files.create.assert_called_with(body=expected_body,
+                                                  fields="id")
         self.mock_files.create.return_value.execute.assert_called_once()
 
     @patch("source.googledrive.GoogleAction.Bar")
     @patch("time.sleep", return_value=None)
     @patch("sys.exit")
-    def test_delete_backup_on_cloud_success(self, mock_exit, mock_sleep, MockBar):
-        self.action._get_folder_id_by_name = MagicMock(side_effect=["folder123", None])
+    def test_delete_backup_on_cloud_success(self, mock_exit, mock_sleep,
+                                            MockBar):
+        self.action._get_folder_id_by_name = MagicMock(side_effect=[
+            "folder123", None])
         files = [{"id": "file1"}, {"id": "file2"}]
         self.action._list_all_files_recursive = MagicMock(return_value=files)
         mock_bar = MagicMock()
         MockBar.return_value = mock_bar
         delete_mock = MagicMock()
-        self.action.service.files().delete = MagicMock(return_value=delete_mock)
+        self.action.service.files().delete = MagicMock(
+            return_value=delete_mock)
         delete_mock.execute = MagicMock()
         self.action.delete_backup_on_cloud("backup_name")
         self.action._get_folder_id_by_name.assert_any_call("backup_name")
-        self.action._list_all_files_recursive.assert_called_once_with("folder123")
+        self.action._list_all_files_recursive.assert_called_once_with(
+            "folder123")
         expected_calls = [
             call(fileId="file1"),
             call(fileId="file2"),
@@ -174,7 +192,8 @@ class TestGoogleAction(unittest.TestCase):
         mock_bar = MagicMock()
         MockBar.return_value = mock_bar
         delete_mock = MagicMock()
-        self.action.service.files().delete = MagicMock(return_value=delete_mock)
+        self.action.service.files().delete = MagicMock(
+            return_value=delete_mock)
         delete_mock.execute = MagicMock()
         with patch("builtins.print") as mock_print:
             self.action.delete_backup_on_cloud("backup_name")
@@ -191,7 +210,8 @@ class TestGoogleAction(unittest.TestCase):
 
     @patch("builtins.print")
     def test_list_of_files_on_backup_empty_folder(self, mock_print):
-        self.action._get_folder_id_by_name = MagicMock(return_value="folder123")
+        self.action._get_folder_id_by_name = MagicMock(
+            return_value="folder123")
         self.action.service.files().list().execute = MagicMock(
             return_value={"files": []}
         )
@@ -201,7 +221,8 @@ class TestGoogleAction(unittest.TestCase):
 
     @patch("builtins.print")
     def test_list_of_files_on_backup_unusual_mimetype(self, mock_print):
-        self.action._get_folder_id_by_name = MagicMock(return_value="folder123")
+        self.action._get_folder_id_by_name = MagicMock(
+            return_value="folder123")
 
         self.action.service.files().list().execute = MagicMock(
             return_value={
@@ -220,7 +241,8 @@ class TestGoogleAction(unittest.TestCase):
 
     @patch("builtins.print")
     def test_list_of_files_on_backup_multiple_root_items(self, mock_print):
-        self.action._get_folder_id_by_name = MagicMock(return_value="root_id")
+        self.action._get_folder_id_by_name = MagicMock(
+            return_value="root_id")
 
         def list_side_effect(**kwargs):
             q = kwargs.get("q", "")
@@ -232,7 +254,8 @@ class TestGoogleAction(unittest.TestCase):
                             "name": "FolderA",
                             "mimeType": "application/vnd.google-apps.folder",
                         },
-                        {"id": "fileX", "name": "FileX.txt", "mimeType": "text/plain"},
+                        {"id": "fileX", "name":
+                            "FileX.txt", "mimeType": "text/plain"},
                     ]
                 }
             elif "'folderA' in parents" in q:
@@ -276,7 +299,8 @@ class TestGoogleAction(unittest.TestCase):
         mock_makedirs,
         mock_open_file,
     ):
-        mock_datetime.fromisoformat.return_value.timestamp.return_value = 1000000
+        mock_datetime.fromisoformat.return_value.timestamp.\
+            return_value = 1000000
         mock_datetime.fromtimestamp.return_value = (
             mock_datetime.fromisoformat.return_value
         )
